@@ -1,0 +1,7 @@
+.env
+.user_token
+*.pyc
+__pycache__/
+.venv/
+venv/
+.claude/

@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+line-bot-sdk
+python-dotenv
+google-adk
+sqlalchemy>=2.0.0
