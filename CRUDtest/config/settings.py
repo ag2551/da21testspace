@@ -55,6 +55,11 @@ INSTALLED_APPS = [
 
     # Django Ninja (added later in Task 4)
     # 'ninja',
+
+    # Project apps (Phase 2)
+    'apps.social',
+    'apps.content',
+    'apps.api',
 ]
 
 MIDDLEWARE = [
