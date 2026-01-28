@@ -99,13 +99,13 @@ class PublisherService:
         # Decrypt token
         token = self.encryption.decrypt(credential[0].encrypted_token)
 
-        # Get page_id from settings
-        page_id = settings.fb_page_id
+        # Get page_id from credential or fallback to settings
+        page_id = credential[0].page_id_or_urn or settings.fb_page_id
         if not page_id:
             return {
                 "success": False,
                 "post_id": None,
-                "error": "Facebook page_id not configured in .env (fb_page_id)"
+                "error": "Facebook page_id not configured (provide in credential or set fb_page_id in .env)"
             }
 
         # Publish via adapter
@@ -137,13 +137,13 @@ class PublisherService:
         # Decrypt token
         token = self.encryption.decrypt(credential[0].encrypted_token)
 
-        # Get author_urn from settings
-        author_urn = settings.linkedin_organization_urn
+        # Get author_urn from credential or fallback to settings
+        author_urn = credential[0].page_id_or_urn or settings.linkedin_organization_urn
         if not author_urn:
             return {
                 "success": False,
                 "post_id": None,
-                "error": "LinkedIn organization URN not configured in .env (linkedin_organization_urn)"
+                "error": "LinkedIn author URN not configured (provide in credential or set linkedin_organization_urn in .env)"
             }
 
         # Publish via adapter

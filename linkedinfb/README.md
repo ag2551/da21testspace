@@ -86,6 +86,38 @@ Open your browser and navigate to:
 - **Swagger UI**: http://localhost:8000/docs
 - **ReDoc**: http://localhost:8000/redoc
 
+### 5. Platform Credential Setup
+
+Before publishing, you need to configure credentials for each platform:
+
+| Platform | Required Fields | Where to Get |
+|----------|----------------|--------------|
+| **LinkedIn** | • `access_token`<br>• `page_id_or_urn` (Person URN) | • Access Token: [LinkedIn Developer Portal](https://www.linkedin.com/developers/) (OAuth 2.0)<br>• Person URN: From `/v2/userinfo` API or format: `urn:li:person:YOUR_ID` |
+| **Facebook** | • `access_token` (Page Token)<br>• `page_id_or_urn` (Page ID) | • Page Token: [Graph API Explorer](https://developers.facebook.com/tools/explorer/)<br>• Page ID: Your Page's About section or `/me/accounts` API |
+
+**Quick Setup:**
+```bash
+# LinkedIn
+curl -X POST "http://localhost:8000/api/credentials/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "platform": "linkedin",
+    "account_name": "Your Name",
+    "access_token": "YOUR_TOKEN",
+    "page_id_or_urn": "urn:li:person:YOUR_ID"
+  }'
+
+# Facebook
+curl -X POST "http://localhost:8000/api/credentials/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "platform": "facebook",
+    "account_name": "Page Name",
+    "access_token": "YOUR_PAGE_TOKEN",
+    "page_id_or_urn": "YOUR_PAGE_ID"
+  }'
+```
+
 ## API Endpoints
 
 ### Credentials
@@ -114,18 +146,70 @@ GET    /api/posts/{id}/status        # Get publication status
 
 ## Usage Examples
 
-### Create a Draft Post
+### Step 1: Create a Draft Post
 
 ```bash
 curl -X POST "http://localhost:8000/api/posts/" \
   -H "Content-Type: application/json" \
   -d '{
     "content_text": "Excited to announce our new product launch! 🚀",
-    "content_image_url": "https://example.com/product.jpg"
+    "content_image_url": "https://images.unsplash.com/photo-1593720213428-28a5b9e94613?w=800"
   }'
 ```
 
-### Add Facebook Credential
+**Response:**
+```json
+{
+  "id": 1,
+  "content_text": "Excited to announce our new product launch! 🚀",
+  "content_image_url": "https://images.unsplash.com/photo-1593720213428-28a5b9e94613?w=800",
+  "status": "draft",
+  ...
+}
+```
+
+### Step 2: Add Platform Credentials
+
+#### Add LinkedIn Credential
+
+```bash
+curl -X POST "http://localhost:8000/api/credentials/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "platform": "linkedin",
+    "account_name": "Your Name",
+    "access_token": "YOUR_LINKEDIN_ACCESS_TOKEN",
+    "page_id_or_urn": "urn:li:person:YOUR_PERSON_ID"
+  }'
+```
+
+**How to get LinkedIn credentials:**
+
+1. **Access Token**: 
+   - Go to [LinkedIn Developer Portal](https://www.linkedin.com/developers/)
+   - Create or select your app
+   - Request permissions: `w_member_social`, `r_liteprofile`
+   - Complete OAuth 2.0 flow to get access token
+   - See [LinkedIn OAuth 2.0 Guide](https://learn.microsoft.com/en-us/linkedin/shared/authentication/authentication)
+
+2. **Person URN** (page_id_or_urn):
+   - Format: `urn:li:person:YOUR_PERSON_ID`
+   - Get from LinkedIn API: `GET https://api.linkedin.com/v2/userinfo`
+   - Or use the test value from your `.env` file
+
+**Example response:**
+```json
+{
+  "id": 1,
+  "platform": "linkedin",
+  "account_name": "Your Name",
+  "page_id_or_urn": "urn:li:person:ACoAAFrwP2wB...",
+  "is_active": true,
+  ...
+}
+```
+
+#### Add Facebook Credential
 
 ```bash
 curl -X POST "http://localhost:8000/api/credentials/" \
@@ -133,13 +217,51 @@ curl -X POST "http://localhost:8000/api/credentials/" \
   -d '{
     "platform": "facebook",
     "account_name": "My Business Page",
-    "access_token": "YOUR_FB_PAGE_TOKEN"
+    "access_token": "YOUR_FB_PAGE_ACCESS_TOKEN",
+    "page_id_or_urn": "YOUR_PAGE_ID"
   }'
 ```
 
-### Publish Post to Both Platforms
+**How to get Facebook credentials:**
+
+1. **Page Access Token**:
+   - Go to [Facebook Graph API Explorer](https://developers.facebook.com/tools/explorer/)
+   - Select your Page
+   - Add permissions: `pages_manage_posts`, `pages_read_engagement`
+   - Generate token
+   - For long-lived tokens, see [Facebook Token Guide](https://developers.facebook.com/docs/facebook-login/guides/access-tokens)
+
+2. **Page ID** (page_id_or_urn):
+   - Find on your Facebook Page → About section
+   - Or via Graph API: `GET /me/accounts`
+   - Example: `1015722141619269`
+
+**Example response:**
+```json
+{
+  "id": 2,
+  "platform": "facebook",
+  "account_name": "My Business Page",
+  "page_id_or_urn": "1015722141619269",
+  "is_active": true,
+  ...
+}
+```
+
+### Step 3: Validate Credentials (Optional)
 
 ```bash
+# Validate LinkedIn credential
+curl -X POST "http://localhost:8000/api/credentials/1/validate"
+
+# Validate Facebook credential
+curl -X POST "http://localhost:8000/api/credentials/2/validate"
+```
+
+### Step 4: Publish Post to Platforms
+
+```bash
+# Publish to both platforms
 curl -X POST "http://localhost:8000/api/posts/1/publish" \
   -H "Content-Type: application/json" \
   -d '{
@@ -147,10 +269,81 @@ curl -X POST "http://localhost:8000/api/posts/1/publish" \
   }'
 ```
 
-### Check Post Status
+**Response:**
+```json
+{
+  "id": 1,
+  "status": "published",
+  "results": {
+    "facebook": {
+      "success": true,
+      "post_id": "1015722141619269_1234567890",
+      "error": null
+    },
+    "linkedin": {
+      "success": true,
+      "post_id": "urn:li:share:7123456789012345678",
+      "error": null
+    }
+  }
+}
+```
+
+### Step 5: Check Post Status
 
 ```bash
 curl "http://localhost:8000/api/posts/1/status"
+```
+
+**Response:**
+```json
+{
+  "post_id": 1,
+  "overall_status": "published",
+  "platforms": {
+    "facebook": {
+      "status": "published",
+      "post_id": "1015722141619269_1234567890",
+      "published_at": "2026-01-28T06:30:00",
+      "error": null
+    },
+    "linkedin": {
+      "status": "published",
+      "post_id": "urn:li:share:7123456789012345678",
+      "published_at": "2026-01-28T06:30:00",
+      "error": null
+    }
+  }
+}
+```
+
+### Additional Examples
+
+#### Update Credential
+
+```bash
+curl -X PUT "http://localhost:8000/api/credentials/1" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "access_token": "NEW_TOKEN",
+    "is_active": true
+  }'
+```
+
+#### List All Credentials
+
+```bash
+curl "http://localhost:8000/api/credentials"
+```
+
+#### Publish to Single Platform
+
+```bash
+curl -X POST "http://localhost:8000/api/posts/1/publish" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "platforms": ["linkedin"]
+  }'
 ```
 
 ## Project Structure
@@ -278,12 +471,35 @@ lsof -i :8000
 uvicorn app.main:app --port 8001
 ```
 
+### Pydantic Validation Error on Startup
+
+If you see `ValidationError: Extra inputs are not permitted`:
+
+```bash
+# The .env file has fields not defined in Settings class
+# Check app/config.py Settings class matches your .env variables
+# Or remove unused variables from .env
+```
+
 ### Database errors
 
 ```bash
-# Delete and recreate database
+# Delete and recreate database (WARNING: loses all data)
 rm data/social_hub.db
 # Restart server (will recreate tables)
+```
+
+### Database schema mismatch after update
+
+If you added the `page_id_or_urn` field and get database errors:
+
+```bash
+# Option 1: Add column manually (preserves data)
+sqlite3 data/social_hub.db "ALTER TABLE social_credentials ADD COLUMN page_id_or_urn TEXT;"
+
+# Option 2: Recreate database (loses data)
+rm data/social_hub.db
+# Restart server
 ```
 
 ### Import errors
@@ -295,6 +511,55 @@ source venv/bin/activate
 # Reinstall dependencies
 pip install -r requirements.txt
 ```
+
+### Credential Issues
+
+#### LinkedIn: "Invalid access token" error
+
+- **Cause**: Token expired or invalid permissions
+- **Solution**: 
+  1. Verify token has `w_member_social` permission
+  2. Get fresh token from LinkedIn OAuth flow
+  3. LinkedIn tokens typically expire after 60 days
+
+#### LinkedIn: "author URN not configured" error
+
+- **Cause**: Missing `page_id_or_urn` in credential
+- **Solution**: Update credential with your Person URN:
+  ```bash
+  curl -X PUT "http://localhost:8000/api/credentials/1" \
+    -H "Content-Type: application/json" \
+    -d '{"page_id_or_urn": "urn:li:person:YOUR_ID"}'
+  ```
+
+#### Facebook: "page_id not configured" error
+
+- **Cause**: Missing `page_id_or_urn` in credential
+- **Solution**: Update credential with your Page ID:
+  ```bash
+  curl -X PUT "http://localhost:8000/api/credentials/1" \
+    -H "Content-Type: application/json" \
+    -d '{"page_id_or_urn": "YOUR_PAGE_ID"}'
+  ```
+
+#### Publishing fails with empty error
+
+- **Cause**: Network error or API rate limiting
+- **Solution**: 
+  1. Check server logs for detailed error
+  2. Verify internet connection
+  3. Wait a few minutes and retry (rate limit)
+  4. Validate credential: `POST /api/credentials/{id}/validate`
+
+### Getting Detailed Error Messages
+
+Enable debug mode in `.env`:
+
+```bash
+DEBUG=true
+```
+
+Then check server console for detailed logs.
 
 ## Contributing
 
@@ -313,6 +578,12 @@ For issues, questions, or contributions, please open an issue on GitHub.
 
 ---
 
-**Version**: 1.0.0
-**Last Updated**: 2026-01-27
+**Version**: 1.1.0
+**Last Updated**: 2026-01-28
 **Status**: Production Ready ✅
+
+**Changelog v1.1.0**:
+- Added `page_id_or_urn` field to credentials for per-account Page ID/URN configuration
+- Enhanced error messages for LinkedIn publishing failures
+- Improved credential management with better validation
+- Updated documentation with comprehensive setup guides

@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     # Facebook
     facebook_api_version: str = "v24.0"
     facebook_base_url: str = "https://graph.facebook.com"
+    facebook_app_id: Optional[str] = None
+    facebook_app_secret: Optional[str] = None
     fb_page_id: Optional[str] = None
     fb_page_access_token: Optional[str] = None
 
@@ -30,6 +32,7 @@ class Settings(BaseSettings):
     linkedin_client_id: Optional[str] = None
     linkedin_client_secret: Optional[str] = None
     linkedin_organization_urn: Optional[str] = None
+    linkedin_access_token: Optional[str] = None
 
     class Config:
         env_file = ".env"
