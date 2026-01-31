@@ -41,6 +41,7 @@ async def create_credential(
         platform=credential.platform,
         account_name=credential.account_name,
         encrypted_token=encrypted_token,
+        page_id_or_urn=credential.page_id_or_urn,
         token_expires_at=credential.token_expires_at
     )
 
@@ -100,6 +101,9 @@ async def update_credential(
     # Update fields
     if credential_update.account_name:
         credential.account_name = credential_update.account_name
+
+    if credential_update.page_id_or_urn is not None:
+        credential.page_id_or_urn = credential_update.page_id_or_urn
 
     if credential_update.access_token:
         # Validate new token

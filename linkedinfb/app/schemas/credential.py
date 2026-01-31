@@ -8,6 +8,7 @@ class CredentialBase(BaseModel):
     """Base credential schema"""
     platform: str = Field(..., pattern="^(facebook|linkedin)$")
     account_name: str
+    page_id_or_urn: Optional[str] = None  # Facebook Page ID or LinkedIn Person/Org URN
 
 
 class CredentialCreate(CredentialBase):
@@ -20,6 +21,7 @@ class CredentialUpdate(BaseModel):
     """Schema for updating a credential"""
     account_name: Optional[str] = None
     access_token: Optional[str] = None
+    page_id_or_urn: Optional[str] = None
     token_expires_at: Optional[datetime] = None
     is_active: Optional[bool] = None
 

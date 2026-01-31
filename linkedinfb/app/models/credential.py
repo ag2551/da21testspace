@@ -13,6 +13,7 @@ class SocialCredential(SQLModel, table=True):
     platform: str = Field(index=True)  # "facebook" or "linkedin"
     account_name: str
     encrypted_token: str
+    page_id_or_urn: Optional[str] = None  # Facebook Page ID or LinkedIn Person/Org URN
     token_expires_at: Optional[datetime] = None
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
