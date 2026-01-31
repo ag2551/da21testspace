@@ -87,7 +87,7 @@ Before you begin, ensure you have:
 
 1. **Clone or navigate to the project directory**:
    ```bash
-   cd /home/arexsguo/LINEchatbox
+   cd LINE_chat_id
    ```
 
 2. **Create and activate a virtual environment** (recommended):
