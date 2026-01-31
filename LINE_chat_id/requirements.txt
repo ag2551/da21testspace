@@ -3,4 +3,5 @@ uvicorn[standard]
 line-bot-sdk
 python-dotenv
 google-adk
-sqlalchemy>=2.0.0
+aiosqlite>=0.19.0
+httpx>=0.24.0

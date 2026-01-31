@@ -3,7 +3,7 @@ import sys
 from contextlib import asynccontextmanager
 from datetime import datetime
 from fastapi import FastAPI, Request, HTTPException, Depends
-from sqlalchemy.orm import Session
+import aiosqlite
 from dotenv import load_dotenv
 
 from linebot.v3.webhook import WebhookParser
@@ -21,9 +21,9 @@ from linebot.v3.webhooks import MessageEvent, TextMessageContent
 from google.adk.runners import InMemoryRunner
 from agent_config import search_agent
 
-# Import database components
-from database import engine, get_db
-from models import Base, User
+# Import database components (native SQLite)
+from app.database import init_db, get_db_connection
+from app.routes import social_posts
 
 # Load environment variables from .env file
 load_dotenv()
@@ -55,10 +55,9 @@ async def lifespan(app: FastAPI):
     """
     global async_api_client, line_bot_api, agent_runner
 
-    # Startup: Create database tables
-    print("Creating database tables...")
-    Base.metadata.create_all(bind=engine)
-    print("Database tables created successfully.")
+    # Startup: Create database tables with native SQLite
+    print("Initializing database with native SQLite (aiosqlite)...")
+    await init_db()
 
     # Startup: Initialize async clients
     async_api_client = AsyncApiClient(configuration)
@@ -76,13 +75,16 @@ async def lifespan(app: FastAPI):
 # Create FastAPI application with lifespan
 app = FastAPI(lifespan=lifespan)
 
+# Include CRUD API routes
+app.include_router(social_posts.router)
+
 
 @app.post("/callback")
-async def callback(request: Request, db: Session = Depends(get_db)):
+async def callback(request: Request, db: aiosqlite.Connection = Depends(get_db_connection)):
     """
     LINE Webhook callback endpoint.
     Receives webhook events from LINE Platform and processes them.
-    Includes automatic user profile capture and database persistence.
+    Includes automatic user profile capture and database persistence using native SQL.
     """
     # Extract the X-Line-Signature header
     signature = request.headers['X-Line-Signature']
@@ -104,9 +106,14 @@ async def callback(request: Request, db: Session = Depends(get_db)):
             # Extract user ID from event
             user_id = event.source.user_id
 
-            # Database operations: Check if user exists and update/create profile
+            # Database operations: Check if user exists and update/create profile (NATIVE SQL)
             try:
-                user = db.query(User).filter(User.line_user_id == user_id).first()
+                # Check if user exists
+                cursor = await db.execute(
+                    "SELECT * FROM users WHERE line_user_id = ?",
+                    (user_id,)
+                )
+                user = await cursor.fetchone()
 
                 if user is None:
                     # New user - fetch profile from LINE API
@@ -115,44 +122,55 @@ async def callback(request: Request, db: Session = Depends(get_db)):
                         profile = await line_bot_api.get_profile(user_id)
 
                         # Create new user record with profile data
-                        new_user = User(
-                            line_user_id=user_id,
-                            display_name=profile.display_name,
-                            picture_url=profile.picture_url,
-                            status_message=profile.status_message,
-                            language=getattr(profile, 'language', 'zh-TW')
+                        await db.execute(
+                            """
+                            INSERT INTO users (line_user_id, display_name, picture_url, status_message, language)
+                            VALUES (?, ?, ?, ?, ?)
+                            """,
+                            (user_id, profile.display_name, profile.picture_url,
+                             profile.status_message, getattr(profile, 'language', 'zh-TW'))
                         )
-                        db.add(new_user)
-                        db.commit()
+                        await db.commit()
                         print(f"✓ New user registered: {user_id} ({profile.display_name})")
 
                     except Exception as profile_error:
                         # Handle cases where profile fetch fails (user blocked bot, API error, etc.)
                         print(f"⚠ Could not fetch profile for {user_id}: {profile_error}")
-                        # Create minimal user record
-                        new_user = User(line_user_id=user_id)
-                        db.add(new_user)
-                        db.commit()
+                        # Create minimal user record with default language
+                        await db.execute(
+                            "INSERT INTO users (line_user_id, language, created_at, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                            (user_id, "zh-TW")
+                        )
+                        await db.commit()
                         print(f"✓ Minimal user record created for {user_id}")
                 else:
                     # Existing user - update timestamp and refresh display name
                     try:
                         profile = await line_bot_api.get_profile(user_id)
-                        user.display_name = profile.display_name
-                        user.updated_at = datetime.utcnow()
-                        db.commit()
+                        await db.execute(
+                            """
+                            UPDATE users
+                            SET display_name = ?, updated_at = CURRENT_TIMESTAMP
+                            WHERE line_user_id = ?
+                            """,
+                            (profile.display_name, user_id)
+                        )
+                        await db.commit()
                         print(f"✓ User profile updated: {user_id} ({profile.display_name})")
 
                     except Exception as profile_error:
                         # If profile fetch fails, just update timestamp
                         print(f"⚠ Could not refresh profile for {user_id}: {profile_error}")
-                        user.updated_at = datetime.utcnow()
-                        db.commit()
+                        await db.execute(
+                            "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE line_user_id = ?",
+                            (user_id,)
+                        )
+                        await db.commit()
 
             except Exception as db_error:
                 # Database errors should not break the chatbot
                 print(f"❌ Database error for user {user_id}: {db_error}")
-                db.rollback()
+                await db.rollback()
 
             # Get user's message
             user_message = event.message.text

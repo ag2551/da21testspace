@@ -10,7 +10,14 @@
       "mcp__plugin_serena_serena__replace_content",
       "mcp__plugin_serena_serena__create_text_file",
       "mcp__plugin_serena_serena__find_file",
-      "mcp__plugin_context7_context7__resolve-library-id"
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "WebSearch",
+      "WebFetch(domain:developers.line.biz)",
+      "Bash(pip install:*)",
+      "Bash(.venv/bin/pip install:*)",
+      "Bash(ls:*)",
+      "Bash(.venv/bin/python:*)",
+      "Bash(sqlite3:*)"
     ]
   }
 }
